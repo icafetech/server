@@ -89,6 +89,10 @@ class Response {
 	/** @var array */
 	private $throttleMetadata = [];
 
+	public function __construct() {
+		$this->setContentSecurityPolicy(new EmptyContentSecurityPolicy());
+	}
+
 	/**
 	 * Caches the response
 	 * @param int $cacheSeconds the amount of seconds that should be cached
