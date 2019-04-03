@@ -89,6 +89,11 @@ class Response {
 	/** @var array */
 	private $throttleMetadata = [];
 
+	/**
+	 * Response constructor.
+	 *
+	 * @since 17.0.0
+	 */
 	public function __construct() {
 		$this->setContentSecurityPolicy(new EmptyContentSecurityPolicy());
 	}
