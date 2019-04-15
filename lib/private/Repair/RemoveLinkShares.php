@@ -23,25 +23,43 @@
 
 namespace OC\Repair;
 
+use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use OCP\IDBConnection;
+use OCP\IGroupManager;
 use OCP\Migration\IOutput;
 use OCP\Migration\IRepairStep;
+use OCP\Notification\IManager;
 
 class RemoveLinkShares implements IRepairStep {
 	/** @var IDBConnection */
 	private $connection;
 	/** @var IConfig */
 	private $config;
+	/** @var string[] */
+	private $userToNotify = [];
+	/** @var IGroupManager */
+	private $groupManager;
+	/** @var IManager */
+	private $notificationManager;
+	/** @var ITimeFactory */
+	private $timeFactory;
 
-	public function __construct(IDBConnection $connection, IConfig $config) {
+	public function __construct(IDBConnection $connection,
+								IConfig $config,
+								IGroupManager $groupManager,
+								IManager $notificationManager,
+								ITimeFactory $timeFactory) {
 		$this->connection = $connection;
 		$this->config = $config;
+		$this->groupManager = $groupManager;
+		$this->notificationManager = $notificationManager;
+		$this->timeFactory = $timeFactory;
 	}
 
 
 	public function getName() {
-		return 'Repair share links';
+		return 'Remove potentially over exposing share links';
 	}
 
 	private function shouldRun() {
@@ -61,10 +79,25 @@ class RemoveLinkShares implements IRepairStep {
 	}
 
 	/**
-	 * @suppress SqlInjectionChecker
+	 * Delete the share
+	 *
+	 * @param int $id
 	 */
-	private function repair() {
-		$sql = 'DELETE FROM `*PREFIX*share`
+	private function deleteShare($id) {
+		$qb = $this->connection->getQueryBuilder();
+		$qb->delete('share')
+			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
+		$qb->execute();
+	}
+
+	/**
+	 * Get the total of affected shares
+	 *
+	 * @return int
+	 */
+	private function getTotal() {
+		$sql = 'SELECT COUNT(*) AS `total`
+ 		FROM `*PREFIX*share`
 		WHERE `id` IN (
 			SELECT `s1.id`
 			FROM (
@@ -78,12 +111,104 @@ class RemoveLinkShares implements IRepairStep {
 			WHERE (`s2.share_type` = 1 OR `s2.share_type` = 2)
 			AND `s1.item_source` = `s2.item_source`
 		)';
-		$this->connection->executeQuery($sql);
+		$cursor = $this->connection->executeQuery($sql);
+		$data = $cursor->fetchAll();
+		$total = (int)$data[0]['total'];
+		$cursor->closeCursor();
+
+		return $total;
+	}
+
+	/**
+	 * Get the cursor to fetch all the shares
+	 *
+	 * @return \Doctrine\DBAL\Driver\Statement
+	 */
+	private function getShares() {
+		$sql = 'SELECT `s1.id`
+			FROM (
+				SELECT *
+				FROM `*PREFIX*share`
+				WHERE `parent` IS NOT NULL
+				AND `share_type` = 3
+			) AS s1
+			JOIN ``*PREFIX*share`` AS s2
+			ON `s1.parent` = `s2.id`
+			WHERE (`s2.share_type` = 1 OR `s2.share_type` = 2)
+			AND `s1.item_source` = `s2.item_source`';
+		$cursor = $this->connection->executeQuery($sql);
+		return $cursor;
+	}
+
+	/**
+	 * Process a single share
+	 *
+	 * @param array $data
+	 */
+	private function processShare($data) {
+		$id = $data['id'];
+
+		$this->addToNotify($data['uid_owner']);
+		$this->addToNotify($data['uid_initiator']);
+
+		$this->deleteShare($id);
+	}
+
+	/**
+	 * Update list of users to notify
+	 *
+	 * @param string $uid
+	 */
+	private function addToNotify($uid) {
+		if (!isset($this->userToNotify[$uid])) {
+			$this->userToNotify[$uid] = true;
+		}
+	}
+
+	/**
+	 * Send all notifications
+	 */
+	private function sendNotification() {
+		$time = $this->timeFactory->getDateTime(;)
+
+		$notification = $this->notificationManager->createNotification();
+		$notification->setApp('server')
+			->setDateTime($time)
+			->setObject('repair', 'exposing_links')
+			->setSubject('repair', []);
+
+		foreach ($this->userToNotify as $user) {
+			$notification->setUser($user);
+			$this->notificationManager->notify($notification);
+		}
+	}
+
+	private function repair(IOutput $output) {
+		$total = $this->getTotal();
+		$output->startProgress($total);
+
+		$shareCursor = $this->getShares();
+		while($data = $shareCursor->fetch()) {
+			$this->processShare($data);
+			$output->advance();
+		}
+		$shareCursor->closeCursor();
+
+		// Notifiy all admins
+		$adminGroup = $this->groupManager->get('admin');
+		$adminUsers = $adminGroup->getUsers();
+		foreach ($adminUsers as $user) {
+			$this->addToNotify($user->getUID());
+		}
+
+		$output->info('Sending notifications to admins and affected users');
+		$this->sendNotification();
 	}
 
 	public function run(IOutput $output) {
 		if ($this->shouldRun()) {
-			$this->repair();
+			$output->info('Removing potentially over exposing link shares');
+			$this->repair($output);
 			$output->info('Removed potentially over exposing link shares');
 		} else {
 			$output->info('No need to remove link shares.');
