@@ -59,7 +59,7 @@ class Application extends App {
 		$notificationManager->registerNotifier(function() use ($server) {
 			return new RemoveLinkSharesNotifier(
 				$server->getL10NFactory()
-			)
+			);
 		});
 
 		$eventDispatcher->addListener(IDBConnection::CHECK_MISSING_INDEXES_EVENT,
