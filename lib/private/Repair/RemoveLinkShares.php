@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 /**
  * @copyright Copyright (c) 2019, Roeland Jago Douma <roeland@famdouma.nl>
  *
@@ -23,6 +24,7 @@
 
 namespace OC\Repair;
 
+use Doctrine\DBAL\Driver\Statement;
 use OCP\AppFramework\Utility\ITimeFactory;
 use OCP\IConfig;
 use OCP\IDBConnection;
@@ -58,11 +60,11 @@ class RemoveLinkShares implements IRepairStep {
 	}
 
 
-	public function getName() {
+	public function getName(): string {
 		return 'Remove potentially over exposing share links';
 	}
 
-	private function shouldRun() {
+	private function shouldRun(): bool {
 		$versionFromBeforeUpdate = $this->config->getSystemValue('version', '0.0.0');
 
 		if (version_compare($versionFromBeforeUpdate, '14.0.11', '<')) {
@@ -83,7 +85,7 @@ class RemoveLinkShares implements IRepairStep {
 	 *
 	 * @param int $id
 	 */
-	private function deleteShare($id) {
+	private function deleteShare(int $id) {
 		$qb = $this->connection->getQueryBuilder();
 		$qb->delete('share')
 			->where($qb->expr()->eq('id', $qb->createNamedParameter($id)));
@@ -95,7 +97,7 @@ class RemoveLinkShares implements IRepairStep {
 	 *
 	 * @return int
 	 */
-	private function getTotal() {
+	private function getTotal(): int {
 		$sql = 'SELECT COUNT(*) AS `total`
  		FROM `*PREFIX*share`
 		WHERE `id` IN (
@@ -124,7 +126,7 @@ class RemoveLinkShares implements IRepairStep {
 	 *
 	 * @return \Doctrine\DBAL\Driver\Statement
 	 */
-	private function getShares() {
+	private function getShares(): Statement {
 		$sql = 'SELECT `s1.id`
 			FROM (
 				SELECT *
@@ -145,7 +147,7 @@ class RemoveLinkShares implements IRepairStep {
 	 *
 	 * @param array $data
 	 */
-	private function processShare($data) {
+	private function processShare(array $data) {
 		$id = $data['id'];
 
 		$this->addToNotify($data['uid_owner']);
@@ -159,7 +161,7 @@ class RemoveLinkShares implements IRepairStep {
 	 *
 	 * @param string $uid
 	 */
-	private function addToNotify($uid) {
+	private function addToNotify(string $uid) {
 		if (!isset($this->userToNotify[$uid])) {
 			$this->userToNotify[$uid] = true;
 		}
@@ -175,7 +177,7 @@ class RemoveLinkShares implements IRepairStep {
 		$notification->setApp('server')
 			->setDateTime($time)
 			->setObject('repair', 'exposing_links')
-			->setSubject('repair', []);
+			->setSubject('repair_exposing_links', []);
 
 		foreach ($this->userToNotify as $user) {
 			$notification->setUser($user);
