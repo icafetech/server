@@ -1018,6 +1018,7 @@ return array(
     'OC\\Repair\\OldGroupMembershipShares' => $baseDir . '/lib/private/Repair/OldGroupMembershipShares.php',
     'OC\\Repair\\Owncloud\\DropAccountTermsTable' => $baseDir . '/lib/private/Repair/Owncloud/DropAccountTermsTable.php',
     'OC\\Repair\\Owncloud\\SaveAccountsTableData' => $baseDir . '/lib/private/Repair/Owncloud/SaveAccountsTableData.php',
+    'OC\\Repair\\RemoveLinkShares' => $baseDir . '/lib/private/Repair/RemoveLinkShares.php',
     'OC\\Repair\\RemoveRootShares' => $baseDir . '/lib/private/Repair/RemoveRootShares.php',
     'OC\\Repair\\RepairInvalidShares' => $baseDir . '/lib/private/Repair/RepairInvalidShares.php',
     'OC\\Repair\\RepairMimeTypes' => $baseDir . '/lib/private/Repair/RepairMimeTypes.php',
