@@ -49,7 +49,7 @@ class RemoveLinkSharesNotifier implements INotifier {
 			return $notification;
 		}
 
-		throw new \InvalidArgumentException('Invalid subject')
+		throw new \InvalidArgumentException('Invalid subject');
 	}
 
 }
