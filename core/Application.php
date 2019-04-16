@@ -60,6 +60,12 @@ class Application extends App {
 			return new RemoveLinkSharesNotifier(
 				$server->getL10NFactory()
 			);
+		},  function() use ($server) {
+			$l = $server->getL10N('core');
+			return [
+				'id' => 'core',
+				'name' => 'core',
+			];
 		});
 
 		$eventDispatcher->addListener(IDBConnection::CHECK_MISSING_INDEXES_EVENT,

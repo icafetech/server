@@ -98,7 +98,7 @@ class RemoveLinkShares implements IRepairStep {
 	 * @return int
 	 */
 	private function getTotal(): int {
-		$sql = 'SELECT COUNT(*) AS `total`
+		$sql = 'SELECT `COUNT(*)` AS `total`
  		FROM `*PREFIX*share`
 		WHERE `id` IN (
 			SELECT `s1.id`
@@ -108,10 +108,10 @@ class RemoveLinkShares implements IRepairStep {
 				WHERE `parent` IS NOT NULL
 				AND `share_type` = 3
 			) AS s1
-			JOIN ``*PREFIX*share`` AS s2
-			ON `s1.parent` = `s2.id`
-			WHERE (`s2.share_type` = 1 OR `s2.share_type` = 2)
-			AND `s1.item_source` = `s2.item_source`
+			JOIN `*PREFIX*share` AS s2
+			ON `s1`.`parent` = `s2`.`id`
+			WHERE (`s2`.`share_type` = 1 OR `s2`.`share_type` = 2)
+			AND `s1`.`item_source` = `s2`.`item_source`
 		)';
 		$cursor = $this->connection->executeQuery($sql);
 		$data = $cursor->fetchAll();
@@ -127,17 +127,17 @@ class RemoveLinkShares implements IRepairStep {
 	 * @return \Doctrine\DBAL\Driver\Statement
 	 */
 	private function getShares(): Statement {
-		$sql = 'SELECT `s1.id`
+		$sql = 'SELECT `s1`.`id`, `s1`.`uid_owner`, `s1`.`uid_initiator`
 			FROM (
 				SELECT *
 				FROM `*PREFIX*share`
 				WHERE `parent` IS NOT NULL
 				AND `share_type` = 3
 			) AS s1
-			JOIN ``*PREFIX*share`` AS s2
-			ON `s1.parent` = `s2.id`
-			WHERE (`s2.share_type` = 1 OR `s2.share_type` = 2)
-			AND `s1.item_source` = `s2.item_source`';
+			JOIN `*PREFIX*share` AS s2
+			ON `s1`.`parent` = `s2`.`id`
+			WHERE (`s2`.`share_type` = 1 OR `s2`.`share_type` = 2)
+			AND `s1`.`item_source` = `s2`.`item_source`';
 		$cursor = $this->connection->executeQuery($sql);
 		return $cursor;
 	}
@@ -153,7 +153,7 @@ class RemoveLinkShares implements IRepairStep {
 		$this->addToNotify($data['uid_owner']);
 		$this->addToNotify($data['uid_initiator']);
 
-		$this->deleteShare($id);
+		$this->deleteShare((int)$id);
 	}
 
 	/**
@@ -171,7 +171,7 @@ class RemoveLinkShares implements IRepairStep {
 	 * Send all notifications
 	 */
 	private function sendNotification() {
-		$time = $this->timeFactory->getDateTime(;)
+		$time = $this->timeFactory->getDateTime();
 
 		$notification = $this->notificationManager->createNotification();
 		$notification->setApp('server')
@@ -179,7 +179,8 @@ class RemoveLinkShares implements IRepairStep {
 			->setObject('repair', 'exposing_links')
 			->setSubject('repair_exposing_links', []);
 
-		foreach ($this->userToNotify as $user) {
+		$users = array_keys($this->userToNotify);
+		foreach ($users as $user) {
 			$notification->setUser($user);
 			$this->notificationManager->notify($notification);
 		}
